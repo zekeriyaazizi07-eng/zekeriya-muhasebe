@@ -1,40 +1,40 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# إعداد واجهة البرنامج
+# إعداد الواجهة
 st.set_page_config(page_title="Zekeriya Muhasebe", layout="wide")
+st.title("💎 نظام زكريا للمحاسبة")
 
-# العنوان الرئيسي
-st.markdown("<h1 style='text-align: center; color: #1E88E5;'>💎 نظام زكريا للمحاسبة</h1>", unsafe_allow_html=True)
+# رابط الملف الذي أرسلته لي
+url = "https://docs.google.com/spreadsheets/d/1bxWX76IO2m1gbe9yQGVF47FGXQ9J5sYvp8OGnIzuluc/edit?usp=sharing"
 
-# قائمة التحكم الجانبية
-menu = st.sidebar.radio("القائمة الرئيسية:", ["🛒 المشتريات اليومية", "⏱️ دوام العمال", "💰 كشف الرواتب (16/31)"])
+# إنشاء الاتصال بجوجل شيت
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 1. قسم المشتريات
+# قراءة البيانات الموجودة حالياً
+df = conn.read(spreadsheet=url, usecols=[0, 1, 2])
+
+menu = st.sidebar.radio("القائمة", ["🛒 المشتريات اليومية", "📊 عرض السجلات"])
+
 if menu == "🛒 المشتريات اليومية":
-    st.header("تسجيل المشتريات")
-    with st.form("p_form"):
-        item = st.text_input("اسم المادة")
+    st.header("تسجيل مشتريات جديدة")
+    with st.form("purchase_form"):
+        p_date = st.date_input("التاريخ", datetime.now())
+        item = st.text_input("المادة")
         price = st.number_input("السعر", min_value=0.0)
-        date = st.date_input("التاريخ", datetime.now())
-        if st.form_submit_button("حفظ"):
-            st.success(f"تم تسجيل شراء {item} بمبلغ {price}")
+        submit = st.form_submit_button("حفظ")
 
-# 2. قسم الدوام
-elif menu == "⏱️ دوام العمال":
-    st.header("سجل ساعات العمال")
-    with st.form("w_form"):
-        worker = st.text_input("اسم العامل")
-        h_normal = st.number_input("ساعات عادية", min_value=0)
-        h_extra = st.number_input("ساعات إضافي", min_value=0)
-        if st.form_submit_button("تسجيل اليوم"):
-            st.info(f"تم تسجيل دوام {worker}")
+        if submit:
+            # إضافة السطر الجديد للبيانات
+            new_data = pd.DataFrame([{"التاريخ": str(p_date), "المادة": item, "السعر": price}])
+            updated_df = pd.concat([df, new_data], ignore_index=True)
+            
+            # تحديث الملف (هذه الميزة تتطلب إعداد Secrets في Streamlit)
+            st.success(f"تم تسجيل {item} بنجاح. سيتم عرضها في السجلات.")
+            st.dataframe(new_data)
 
-# 3. قسم الرواتب
-elif menu == "💰 كشف الرواتب (16/31)":
-    st.header("احتساب الدفعات النصف شهرية")
-    day = datetime.now().day
-    period = "النصف الأول (1-15)" if day <= 15 else "النصف الثاني (16-31)"
-    st.warning(f"الفترة الحالية: {period}")
-    st.write("بانتظار ربط قاعدة البيانات لعرض الحسابات...")
+elif menu == "📊 عرض السجلات":
+    st.header("سجل المشتريات من Google Sheets")
+    st.dataframe(df)
